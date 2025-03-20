@@ -7,13 +7,13 @@ API de emissão, consulta e cancelamento de notas fiscais de serviço via webser
 
 O que você precisa para instalar o software e como instalá-lo
 
-Mínimo ```PHP 7.2```
+Mínimo ```PHP 8.0```
 
 ### Instalando
 
 Efetue download utilizando composer
 
-```composer require wsilva94/nfse-bh-sdk```
+```composer require cebpereira/nfse-bh-sdk```
 
 ## Começando
 
