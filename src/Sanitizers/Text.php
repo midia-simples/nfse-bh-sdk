@@ -22,8 +22,8 @@ class Text
     {
         $find = 'ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜüÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûýýþÿRr"!@#$%&*()_-+={[}]/?;:.,\\\'<>°ºª';
         $repl = 'aaaaaaaceeeeiiiidnoooooouuuuuybsaaaaaaaceeeeiiiidnoooooouuuyybyRr                                 ';
-        $rest = strip_tags(trim(strtr(utf8_decode($this->str), utf8_decode($find), $repl)));
-        $this->str = utf8_encode($rest);
+        $rest = strip_tags(trim(strtr($this->str, $find, $repl)));
+        $this->str = $rest;
         return $this;
     }
 
