@@ -1,4 +1,6 @@
-<?php namespace NFse\Config;
+<?php
+
+namespace NFse\Config;
 
 use Exception;
 use NFse\Models\Settings;
@@ -43,7 +45,7 @@ class WebService
      */
     private function homologacao(): void
     {
-        $this->wsdl = 'https://bhisshomologa.pbh.gov.br/bhiss-ws/nfse?wsdl';
+        $this->wsdl = 'https://bhisshomologaws.pbh.gov.br/bhiss-ws/nfse?wsdl';
         $this->folder = 'homologacao';
     }
 
@@ -52,7 +54,7 @@ class WebService
      */
     private function producao(): void
     {
-        $this->wsdl = 'https://bhissdigital.pbh.gov.br/bhiss-ws/nfse?wsdl';
+        $this->wsdl = 'https://bhissdigitalws.pbh.gov.br/bhiss-ws/nfse?wsdl';
         $this->folder = 'producao';
     }
 }
