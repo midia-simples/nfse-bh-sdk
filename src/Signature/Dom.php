@@ -8,6 +8,8 @@ use \DOMDocument;
 
 class Dom extends DOMDocument
 {
+    public $erros = array();
+
     public function __construct($version = '1.0', $charset = 'utf-8')
     {
         parent::__construct($version, $charset);

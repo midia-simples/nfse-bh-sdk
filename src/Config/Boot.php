@@ -1,4 +1,6 @@
-<?php namespace NFse\Config;
+<?php
+
+namespace NFse\Config;
 
 use Exception;
 use NFse\Config\API;

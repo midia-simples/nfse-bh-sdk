@@ -1,4 +1,6 @@
-<?php namespace NFse\Signature;
+<?php
+
+namespace NFse\Signature;
 
 class Oids
 {
@@ -868,7 +870,8 @@ class Oids
         '2.16.76.1.4' => 'Atributos Opcionais de Certificados',
         '2.16.76.1.4.1' => 'Entidades Sindicais',
         '2.16.76.1.4.1.1' => 'SINCOR',
-        '2.16.76.1.4.1.1.1' => 'Número de registro do corretor associado');
+        '2.16.76.1.4.1.1.1' => 'Número de registro do corretor associado'
+    );
 
     /**
      * getOid

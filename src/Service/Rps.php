@@ -1,4 +1,6 @@
-<?php namespace NFse\Service;
+<?php
+
+namespace NFse\Service;
 
 use Exception;
 use NFse\Helpers\Utils;
@@ -227,7 +229,7 @@ class Rps
 
             // verifica o cod do municipio
             if (empty($codTribMun) || strlen($codTribMun) > 20) {
-                throw new \Exception("O código de tributaçaõ do municipio é inválido.");
+                throw new \Exception("O código de tributação do municipio é inválido.");
             }
 
             // verifica o cod do municipio

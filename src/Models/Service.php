@@ -1,4 +1,6 @@
-<?php namespace NFse\Models;
+<?php
+
+namespace NFse\Models;
 
 class Service
 {

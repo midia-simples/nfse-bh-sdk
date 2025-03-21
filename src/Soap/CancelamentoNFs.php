@@ -1,4 +1,6 @@
-<?php namespace NFse\Soap;
+<?php
+
+namespace NFse\Soap;
 
 class CancelamentoNFs
 {

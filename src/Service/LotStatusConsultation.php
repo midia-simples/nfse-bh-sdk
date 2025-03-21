@@ -1,4 +1,6 @@
-<?php namespace NFse\Service;
+<?php
+
+namespace NFse\Service;
 
 use Exception;
 use NFse\Models\Settings;
@@ -11,6 +13,7 @@ use NFse\Soap\Soap;
 class LotStatusConsultation extends ConsultBase
 {
     private $xSoap;
+    private $syncModel;
 
     /**
      * constroi o xml de consulta

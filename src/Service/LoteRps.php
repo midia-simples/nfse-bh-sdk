@@ -1,4 +1,6 @@
-<?php namespace NFse\Service;
+<?php
+
+namespace NFse\Service;
 
 use Exception;
 use NFse\Helpers\Utils;

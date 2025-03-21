@@ -1,4 +1,6 @@
-<?php namespace NFse\Signature;
+<?php
+
+namespace NFse\Signature;
 
 //Classe auxiliar para obter informações dos certificados digitais A1 (PKCS12)
 
@@ -63,7 +65,7 @@ class Asn extends Base
                 //a parte do certificado com o OID
                 $data = $xcv . $oidHexa . $partes[$i];
                 //converte para decimal, o segundo digito da sequencia
-                $len = (integer) ord($data[1]);
+                $len = (int) ord($data[1]);
                 $bytes = 0;
                 // obtem tamanho da parte de dados da oid
                 self::getLength($len, $bytes, (string) $data);
@@ -174,7 +176,7 @@ class Asn extends Base
     //parseCommon
     protected static function parseCommon($data, &$result)
     {
-        self::$len = (integer) ord($data[1]);
+        self::$len = (int) ord($data[1]);
         $bytes = 0;
         self::getLength(self::$len, $bytes, (string) $data);
         $result = substr($data, 2 + $bytes, self::$len);
@@ -185,11 +187,12 @@ class Asn extends Base
     protected static function parseBooleanType(&$data, &$result)
     {
         // Boolean type
-        $booleanValue = (boolean) (ord($data[2]) == 0xff);
+        $booleanValue = (bool) (ord($data[2]) == 0xff);
         $dataI = substr($data, 3);
         $result[] = array(
             'boolean (1)',
-            $booleanValue);
+            $booleanValue
+        );
         $data = $dataI;
     }
 
@@ -200,7 +203,8 @@ class Asn extends Base
         if (self::$len == 16) {
             $result[] = array(
                 'integer(' . self::$len . ')',
-                $integerData);
+                $integerData
+            );
         } else {
             $value = 0;
             if (self::$len <= 4) {
@@ -230,7 +234,8 @@ class Asn extends Base
         $dataI = substr($data, 1);
         $result[] = array(
             $text . ' (' . self::$len . ')',
-            dechex($extensionData));
+            dechex($extensionData)
+        );
         $data = $dataI;
     }
 
@@ -241,7 +246,8 @@ class Asn extends Base
         $dataI = self::parseCommon($data, $timeData);
         $result[] = array(
             'utctime (' . self::$len . ')',
-            $timeData);
+            $timeData
+        );
         $data = $dataI;
     }
 
@@ -252,7 +258,8 @@ class Asn extends Base
         $data = self::parseCommon($data, $stringData);
         $result[] = array(
             'Printable String (' . self::$len . ')',
-            $stringData);
+            $stringData
+        );
     }
 
     //parseCharString
@@ -262,7 +269,8 @@ class Asn extends Base
         $data = self::parseCommon($data, $stringData);
         $result[] = array(
             'string (' . self::$len . ')',
-            self::printHex((string) $stringData));
+            self::printHex((string) $stringData)
+        );
     }
 
     //parseExtensions
@@ -272,7 +280,8 @@ class Asn extends Base
         $data = self::parseCommon($data, $extensionData);
         $result[] = array(
             "$text (" . self::$len . ")",
-            array(self::parseASN((string) $extensionData, true)));
+            array(self::parseASN((string) $extensionData, true))
+        );
     }
 
     //parseSequence
@@ -286,7 +295,8 @@ class Asn extends Base
         }
         $result[] = array(
             'sequence (' . self::$len . ')',
-            $values);
+            $values
+        );
     }
 
     //parseOIDtype
@@ -312,11 +322,13 @@ class Asn extends Base
         if ($oidResp) {
             $result[] = array(
                 'oid(' . self::$len . '): ' . $plain,
-                $oidResp);
+                $oidResp
+            );
         } else {
             $result[] = array(
                 'oid(' . self::$len . '): ' . $plain,
-                $plain);
+                $plain
+            );
         }
     }
 
@@ -326,7 +338,8 @@ class Asn extends Base
         $data = self::parseCommon($data, $sequenceData);
         $result[] = array(
             'set (' . self::$len . ')',
-            self::parseASN((string) $sequenceData));
+            self::parseASN((string) $sequenceData)
+        );
     }
 
     //parseOctetSting
@@ -337,11 +350,13 @@ class Asn extends Base
         if ($contextEspecific) {
             $result[] = array(
                 'octet string(' . self::$len . ')',
-                $octectstringData);
+                $octectstringData
+            );
         } else {
             $result[] = array(
                 'octet string (' . self::$len . ')',
-                self::parseASN((string) $octectstringData));
+                self::parseASN((string) $octectstringData)
+            );
         }
     }
 
@@ -353,11 +368,13 @@ class Asn extends Base
         if ($contextEspecific) {
             $result[] = array(
                 'utf8 string(' . self::$len . ')',
-                $octectstringData);
+                $octectstringData
+            );
         } else {
             $result[] = array(
                 'utf8 string (' . self::$len . ')',
-                self::parseASN((string) $octectstringData));
+                self::parseASN((string) $octectstringData)
+            );
         }
     }
 
@@ -368,7 +385,8 @@ class Asn extends Base
         $data = self::parseCommon($data, $stringData);
         $result[] = array(
             'IA5 String (' . self::$len . ')',
-            $stringData);
+            $stringData
+        );
     }
 
     //parseString
@@ -378,7 +396,8 @@ class Asn extends Base
         $data = self::parseCommon($data, $stringData);
         $result[] = array(
             'string (' . self::$len . ')',
-            $stringData);
+            $stringData
+        );
     }
 
     //parseBitString
@@ -388,6 +407,7 @@ class Asn extends Base
         $data = self::parseCommon($data, $bitstringData);
         $result[] = array(
             'bit string (' . self::$len . ')',
-            'UnsedBits:' . ord($bitstringData[0]) . ':' . ord($bitstringData[1]));
+            'UnsedBits:' . ord($bitstringData[0]) . ':' . ord($bitstringData[1])
+        );
     }
 }

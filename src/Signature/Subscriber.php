@@ -1,4 +1,6 @@
-<?php namespace NFse\Signature;
+<?php
+
+namespace NFse\Signature;
 
 use Exception;
 use NFse\Models\Settings;

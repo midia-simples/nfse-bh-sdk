@@ -14,6 +14,7 @@ use NFse\Soap\Soap;
 class ConsultNFSe extends ConsultBase
 {
     private $xSoap;
+    private $syncModel;
 
     const CNPJ = 1;
     const CPF = 2;

@@ -1,4 +1,6 @@
-<?php namespace NFse\Signature;
+<?php
+
+namespace NFse\Signature;
 
 // Classe auxiliar para obter informações dos certificados digitais A1 (PKCS12) [Base para a classe ASN]
 
@@ -36,7 +38,7 @@ class Base
                 $bun += $partes[$num];
                 $abBinary[] = $bun;
             } else {
-                $abBinary = self::xBase128((array) $abBinary, (integer) $partes[$num], true);
+                $abBinary = self::xBase128((array) $abBinary, (int) $partes[$num], true);
             }
         }
         $value = chr(0x06) . chr(count($abBinary));

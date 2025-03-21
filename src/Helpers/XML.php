@@ -1,4 +1,6 @@
-<?php namespace NFse\Helpers;
+<?php
+
+namespace NFse\Helpers;
 
 class XML
 {

@@ -11,6 +11,7 @@ use NFse\Soap\Soap;
 class ConsultBatch extends ConsultBase
 {
     private $xSoap;
+    private $syncModel;
 
     /**
      * constroi o xml de consulta

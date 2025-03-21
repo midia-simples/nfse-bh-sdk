@@ -1,4 +1,6 @@
-<?php namespace NFse\Config;
+<?php
+
+namespace NFse\Config;
 
 use Exception;
 use League\Flysystem\Local\LocalFilesystemAdapter;
@@ -25,7 +27,7 @@ class API
     /**
      * retorna um subdiretório de storage
      */
-    public function getFolder($folder, $subfolder = false):string
+    public function getFolder($folder, $subfolder = false): string
     {
         try {
             if ($subfolder) {

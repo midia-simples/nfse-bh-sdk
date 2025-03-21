@@ -1,4 +1,6 @@
-<?php namespace NFse\Models;
+<?php
+
+namespace NFse\Models;
 
 use NFse\Models\Provader;
 use NFse\Models\Service;

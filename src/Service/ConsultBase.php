@@ -1,4 +1,6 @@
-<?php namespace NFse\Service;
+<?php
+
+namespace NFse\Service;
 
 use Exception;
 use NFse\Helpers\XML;
@@ -9,6 +11,7 @@ use NFse\Sanitizers\Text;
 class ConsultBase
 {
     protected $num;
+    protected $text;
     protected $errors;
     protected $xml;
 

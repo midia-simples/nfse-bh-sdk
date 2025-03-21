@@ -1,4 +1,6 @@
-<?php namespace NFse\Service;
+<?php
+
+namespace NFse\Service;
 
 use NFse\Helpers\XML;
 use NFse\Models\Settings;
