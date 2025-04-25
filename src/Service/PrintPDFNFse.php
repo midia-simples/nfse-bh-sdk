@@ -13,6 +13,24 @@ class PrintPDFNFse
     private $nfse;
     private $logo64;
 
+    private $operations = [
+        1 => 'Tributação no município',
+        2 => 'Tributação fora do município',
+        3 => 'Isenção',
+        4 => 'Imune',
+        5 => 'Exigibilidade suspensa por decisão judicial',
+        6 => 'Exigibilidade suspensa por procedimento administrativo',
+    ];
+
+    private $regimes = [
+        1 => 'Microempresa municipal',
+        2 => 'Estimativa',
+        3 => 'Sociedade de profissionais',
+        4 => 'Cooperativa',
+        5 => 'MEI – Simples Nacional',
+        6 => 'ME ou EPP do Simples Nacional',
+    ];
+
     /**
      *recebe o objeto da nota fiscal para impressão.
      *
@@ -24,58 +42,218 @@ class PrintPDFNFse
         $this->logo64 = $logo64;
     }
 
-    //gera e retorna o pdf da nota
-    // I - HTML
-    // D - Dowload do PDF
-    // P - IMPRIMIR
-
-    public function getPDF($type)
+    /**
+     * Generates and returns a PDF or HTML representation of the NFS-e.
+     *
+     * @param string $outputType The type of output desired. 'I' for HTML (inline view),
+     *                           'D' for direct download as PDF.
+     * @return string The generated content, either as an HTML string or a PDF binary string,
+     *                based on the specified output type.
+     * @throws \InvalidArgumentException If the output type is invalid.
+     */
+    public function getPDF(string $outputType): string
     {
-        if ($type == 'I') {
-            echo $this->getPrintable('I');
-        } else {
-            try {
-                $mPDF = new Mpdf();
-                $mPDF->SetDefaultFont('chelvetica');
-                $html = $this->getPrintable($type);
-                if ($this->nfse->cancellationCode) {
-                    $mPDF->SetWatermarkText('NFS-e Cancelada');
-                    $mPDF->showWatermarkText = true;
-                }
-                $mPDF->WriteHTML($html);
+        $this->validateOutputType($outputType);
 
-                return $mPDF->Output('NFse.pdf', $type);
-            } catch (Exception $e) {
-                throw $e;
-            }
+        $html = $this->generateHtml($outputType);
+
+        if ($outputType === 'I') {
+            return $html;
         }
+
+        return $this->generatePdf($html, $outputType);
     }
 
-    //seta os dados e retorna o html da nota
-    private function getPrintable($type)
+    /**
+     * Generates the HTML string for the NFS-e, replacing placeholders and adding
+     * cancellation marks if necessary.
+     *
+     * @param string $outputType The type of output desired. 'I' for HTML (inline view),
+     *                           'D' for direct download as PDF.
+     * @return string The generated HTML string.
+     */
+    private function generateHtml(string $outputType): string
     {
-        $this->html = file_get_contents(__DIR__ . '/../../storage/' . 'cdn' . \DIRECTORY_SEPARATOR . 'html' . \DIRECTORY_SEPARATOR . 'print.html');
+        $templatePath = __DIR__ . '/../../storage/cdn/html/print.html';
+        $this->html = file_get_contents($templatePath);
 
-        $operations = [
-            1 => 'Tributação no município',
-            2 => 'Tributação fora do município',
-            3 => 'Isenção',
-            4 => 'Imune',
-            5 => 'Exigibilidade suspensa por decisão judicial',
-            6 => 'Exigibilidade suspensa por procedimento administrativo',
+        $this->replacePlaceholders($outputType);
+        $this->addCancellationMark();
+
+        return $this->html;
+    }
+
+    /**
+     * Replaces placeholders in the HTML template with actual values.
+     *
+     * The placeholders are in the format {PLACEHOLDER_NAME} and are replaced
+     * with the values from the NFS-e model.
+     *
+     */
+    private function replacePlaceholders(string $outputType): void
+    {
+        $specialTaxRegime = '';
+
+        if (!empty($this->nfse->service->specialTaxRegime)) {
+            $specialTaxRegime = '<div style="margin: 0px 5px;">
+            <span id="j_id106"></span>
+            <table border="0" cellpadding="4" cellspacing="0" width="100%">
+                <tbody>
+                    <tr>
+                        <td width="33%" height="25" align="left" valign="middle" class="bordaLateral">
+                            <p class="teste">
+                                <span class="subTitulo">Regime Especial de Tributação:</span>
+                                ' . $this->regimes[$this->nfse->service->specialTaxRegime] . '
+                            </p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>';
+        }
+
+        $optanteSimplesNacional = '';
+
+        if ($this->nfse->service->simpleNational) {
+            $optanteSimplesNacional = '<span id="form:j_id177">
+            <tr>
+                <td class="bordaInferior" style="padding: 5px;">
+                    <span class="subTitulo">Documento emitido por ME ou EPP optante pelo Simples Nacional.</span>
+                </td>
+            </tr>
+        </span>';
+        }
+
+        $replacements = [
+            // Styles
+            '/* {PRINT_CSS}*/' => $this->getCssForOutputType($outputType),
+
+            // Header
+            '{ANO}' => $this->nfse->year,
+            '{NFSE_NUMERO}' => $this->nfse->number,
+            '{DATA_EMISSAO}' => $this->nfse->dateEmission,
+            '{HORA_EMISSAO}' => ' às ' . $this->nfse->timeEmission,
+            '{COMPETENCIA}' => $this->nfse->competence,
+            '{CODIGO_VERIFICACAO}' => $this->nfse->verificationCode,
+            '{LOGO_BASE_64}' => $this->logo64,
+            '{NFE_SUBSTITUIDA}' => $this->getReplacedNfseMarkup(),
+
+            // Prestador
+            '{RAZAO_SOCIAL_PRESTADOR}' => $this->nfse->provider->name,
+            '{CPF_CNPJ_PRESTADOR}' => Utils::mask((string) $this->nfse->provider->cnpj, '##.###.###/####-##'),
+            '{INSCRICAO_MUNICIPAL_PRESTADOR}' => Utils::mask((string) $this->nfse->provider->inscription, '#######/###-#'),
+            '{LOGRADOURO_PRESTADOR}' => $this->nfse->provider->address->address,
+            '{NUMERO_ENDERECO_PRESTADOR}' => $this->nfse->provider->address->number,
+            '{BAIRRO_PRESTADOR}' => $this->nfse->provider->address->neighborhood,
+            '{CEP_PRESTADOR}' => Utils::mask((string) $this->nfse->provider->address->zipCode, '##.###-###'),
+            '{MUNICIPIO_PRESTADOR}' => $this->nfse->provider->address->city,
+            '{ESTADO_PRESTADOR}' => $this->nfse->provider->address->state,
+            '{TELEFONE_PRESTADOR}' => Utils::addPhoneMask($this->nfse->provider->phone),
+            '{EMAIL_PRESTADOR}' => $this->nfse->provider->email,
+
+            // Tomador
+            '{RAZAO_SOCIAL_TOMADOR}' => $this->nfse->taker->name,
+            '{CPF_CNPJ_TOMADOR}' => (strlen($this->nfse->taker->document) > 11) ?
+                Utils::mask((string) $this->nfse->taker->document, '##.###.###/####-##') :
+                Utils::mask((string) $this->nfse->taker->document, '###.###.###-##'),
+            '{INSCRICAO_MUNICIPAL_TOMADOR}' => ($this->nfse->taker->municipalRegistration) ?
+                Utils::mask((string) $this->nfse->taker->municipalRegistration, '#######/###-#') : 'Não Informado',
+            '{LOGRADOURO_TOMADOR}' => $this->nfse->taker->address,
+            '{NUMERO_ENDERECO_TOMADOR}' => $this->nfse->taker->number,
+            '{BAIRRO_TOMADOR}' => $this->nfse->taker->neighborhood,
+            '{CEP_TOMADOR}' => Utils::mask((string) $this->nfse->taker->zipCode, '##.###-###'),
+            '{MUNICIPIO_TOMADOR}' => $this->nfse->taker->city,
+            '{ESTADO_TOMADOR}' => $this->nfse->taker->state,
+            '{TELEFONE_TOMADOR}' => Utils::addPhoneMask($this->nfse->taker->phone),
+            '{EMAIL_TOMADOR}' => $this->nfse->taker->email,
+
+            // Body
+            '{DESCRIMINACAO}' => $this->nfse->service->description,
+            '{CODIGO_TRIBUTACAO_MUNICIPAL}' => Utils::mask((string) $this->nfse->service->municipalityTaxationCode, '####-#/##-##'),
+            '{DESCRICAO_TRIBUTACAO_MUNICIPAL}' => $this->nfse->service->taxCodeDescription,
+            '{ITEM_LISTA_SERVICO}' => $this->nfse->service->itemList,
+            '{DESCRICAO_LISTA_SERVICO}' => $this->nfse->service->itemDescription,
+            '{CODIGO_MUNICIPIO_GERADOR}' => $this->nfse->service->municipalCode,
+            '{NOME_MUNICIPIO_GERADOR}' => $this->nfse->service->municipalName,
+            '{NATUREZA_OPERACAO}' => $this->operations[$this->nfse->service->nature],
+            '{REGIME_ESPECIAL_TRIBUTACAO}' => $specialTaxRegime,
+
+            // Valores
+            '{VALOR_SERVICOS}' => Utils::formatRealMoney($this->nfse->service->serviceValue ?? 0),
+            '{VALOR_DESCONTO_CONDICIONADO}' => Utils::formatRealMoney($this->nfse->service->discountCondition ?? 0),
+            '{TOTAL_RETENCOES_FEDERAIS}' => Utils::formatRealMoney($this->nfse->service->otherWithholdings ?? 0),
+            '{VALOR_ISS_RETIDO}' => Utils::formatRealMoney($this->nfse->service->issValueWithheld ?? 0),
+            '{VALOR_LIQUIDO}' => Utils::formatRealMoney($this->nfse->service->netValue ?? 0),
+            '{DEDUCOES}' => Utils::formatRealMoney($this->nfse->service->valueDeductions ?? 0),
+            '{VALOR_DESCONTO_INCONDICIONADO}' => Utils::formatRealMoney($this->nfse->service->unconditionedDiscount ?? 0),
+            '{BASE_CALCULO}' => Utils::formatRealMoney($this->nfse->service->calculationBase ?? 0),
+            '{ALIQUOTA_SERVICOS}' => $this->nfse->service->aliquot * 100 . ' % ',
+            '{VALOR_ISS}' => Utils::formatRealMoney($this->nfse->service->issValue ?? 0),
+            '{VALOR_PIS}' => Utils::formatRealMoney($this->nfse->service->valuePis ?? 0),
+            '{VALOR_COFINS}' => Utils::formatRealMoney($this->nfse->service->valueConfis ?? 0),
+            '{VALOR_IR}' => Utils::formatRealMoney($this->nfse->service->valueIR ?? 0),
+            '{VALOR_CSLL}' => Utils::formatRealMoney($this->nfse->service->valueCSLL ?? 0),
+            '{VALOR_INSS}' => Utils::formatRealMoney($this->nfse->service->valueINSS ?? 0),
+            '{OPTANTE_PELO_SIMPLES}' => $optanteSimplesNacional,
         ];
 
-        $regimes = [
-            1 => 'Microempresa municipal',
-            2 => 'Estimativa',
-            3 => 'Sociedade de profissionais',
-            4 => 'Cooperativa',
-            5 => 'MEI – Simples Nacional',
-            6 => 'ME ou EPP do Simples Nacional',
-        ];
+        $this->html = str_replace(
+            array_keys($replacements),
+            array_values($replacements),
+            $this->html
+        );
+    }
 
-        if ($type == 'I') {
-            $printCss = '@media print {
+    /**
+     * Generates the markup for the replaced NFS-e section.
+     *
+     * @return string HTML markup indicating the NFS-e number that has been replaced.
+     *                Returns an empty string if no replaced NFS-e number is present.
+     */
+    private function getReplacedNfseMarkup(): string
+    {
+        if (empty($this->nfse->nfseNumberReplaced)) {
+            return '';
+        }
+
+        return '
+        <tr>
+            <td colspan="2">
+                <hr class="linhaDivisao"/>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2">
+               <div class="box04">
+                    <table>
+                        <tbody>
+                            <tr>
+                                <td colspan="2">
+                                    <span>
+                                        NFS-e Substituída:' . substr($this->nfse->nfseNumberReplaced, 0, 4) . '/' . substr($this->nfse->nfseNumberReplaced, 4) .
+            '</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </td>
+        </tr>';
+    }
+
+    /**
+     * Returns the CSS styles for the NFS-e output based on the specified output type.
+     *
+     * @param string $outputType The type of output desired. 'I' for print style
+     *                           with larger fonts and additional styling, or any
+     *                           other value for a more compact print style.
+     *
+     * @return string A CSS string with styles tailored for the specified output type.
+     */
+    private function getCssForOutputType(string $outputType): string
+    {
+        if ($outputType === 'I') {
+            return '@media print {
                 body {
                     font: 19px "Trebuchet MS", Verdana, Arial;
                     color: #175366;
@@ -101,48 +279,21 @@ class PrintPDFNFse
                 .noprint {
                     display: none;
                 }
-                .box01 {
+                .box01, .box02, .box03, .box04, .box05 {
                     background: none;
                 }
-                .box02 {
-                    background: none;
-                }
-                .box03 {
-                    background: none;
-                }
-                .box04 {
-                    background: none;
-                }
-                .box05 {
-                    background: none;
-                }
-                h1 {
-                    font-size: 19px;
-                }
-                h2 {
-                    font-size: 19px;
-                }
-                h3 {
+                h1, h2, h3 {
                     font-size: 19px;
                 }
                 .numeroDestaque {
                     font-size: 30px;
                 }
-                .valorLiquido {
+                .valorLiquido, .issRetido {
                     font-size: 20px;
                     color: #c32b16;
                     padding: 5px 5px 2px;
                 }
-                .issRetido {
-                    font-size: 20px;
-                    color: #c32b16;
-                    padding: 5px 5px 2px;
-                }
-                .cnpjPrincipal {
-                    font-size: 19px;
-                    font-weight: bold;
-                }
-                .subTitulo {
+                .cnpjPrincipal, .subTitulo {
                     font-size: 19px;
                     font-weight: bold;
                 }
@@ -175,250 +326,101 @@ class PrintPDFNFse
                     font-size: 19px;
                 }
             }';
-        } else {
-            $printCss = '@media print {
-                body {
-                    font: 10px "Trebuchet MS", Verdana, Arial;
-                    color: #175366;
-                    text-align: center;
-                }
-                .noprint {
-                    display: none;
-                }
-                .box01, .box02, .box03, .box04, .box05 {
-                    background: none;
-                }
-                .linhaDivisao {
-                    display: block;
-                    margin-bottom: -1px;
-                }
-                .hh2{
-                    font: bold 13px "Trebuchet MS", Verdana, Arial;
-                    color: #175366;
-                    border-bottom: 1px solid #65A0C0;
-                    margin: 0px;
-                }
-                .servicos {
-                    padding: 0 2px;
-                    font-size: 9px;
-                }
-                .subTitulo {
-                    font-size: 11px;
-                    font-weight: bold;
-                }
-            }';
         }
 
-        $nfseNumberReplaced = '';
+        return '@media print {
+            body {
+                font: 10px "Trebuchet MS", Verdana, Arial;
+                color: #175366;
+                text-align: center;
+            }
+            .noprint {
+                display: none;
+            }
+            .box01, .box02, .box03, .box04, .box05 {
+                background: none;
+            }
+            .linhaDivisao {
+                display: block;
+                margin-bottom: -1px;
+            }
+            .hh2 {
+                font: bold 13px "Trebuchet MS", Verdana, Arial;
+                color: #175366;
+                border-bottom: 1px solid #65A0C0;
+                margin: 0px;
+            }
+            .servicos {
+                padding: 0 2px;
+                font-size: 9px;
+            }
+            .subTitulo {
+                font-size: 11px;
+                font-weight: bold;
+            }
+        }';
+    }
 
-        if (!empty($this->nfse->nfseNumberReplaced)) {
-            $nfseNumberReplaced = '
-            <tr>
-                <td colspan="2">
-                    <hr class="linhaDivisao"/>
-                </td>
-            </tr>
-            <tr>
-                <td colspan="2">
-                   <div class="box04">
-                        <table>
-                            <tbody>
-                                <tr>
-                                    <td colspan="2">
-                                        <span>
-                                            NFS-e Substituída:' . substr($this->nfse->nfseNumberReplaced, 0, 4) . '/' . substr($this->nfse->nfseNumberReplaced, 4) .
-                '</span>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </td>
-            </tr>';
+    /**
+     * Generates a PDF from the given HTML.
+     *
+     * @param string $html The HTML to be converted to PDF.
+     * @param string $outputType The type of output desired. 'I' for HTML (inline view),
+     *                           'D' for direct download as PDF.
+     * @return string The generated PDF content as a string.
+     * @throws Exception If there is an error generating the PDF.
+     */
+    private function generatePdf(string $html, string $outputType): string
+    {
+        try {
+            $mpdf = new Mpdf([
+                'default_font' => 'chelvetica',
+                'margin_top' => 10,
+                'margin_bottom' => 10
+            ]);
+
+            if ($this->nfse->cancellationCode) {
+                $mpdf->SetWatermarkText('NFS-e Cancelada');
+                $mpdf->showWatermarkText = true;
+            }
+
+            $mpdf->WriteHTML($html);
+            return $mpdf->Output('NFse.pdf', $outputType);
+        } catch (Exception $e) {
+            throw new Exception("Falha ao gerar PDF: " . $e->getMessage());
         }
+    }
 
-        $specialTaxRegime = '';
-
-        if (!empty($this->nfse->service->specialTaxRegime)) {
-            $specialTaxRegime = '
-
-            <div style="margin: 0px 5px;">
-                <span id="j_id106"> </span>
-                <table border="0" cellpadding="4" cellspacing="0" width="100%">
-                    <tbody>
-                        <tr>
-                            <span id="form:j_id126">
-                                <td width="33%" height="25" align="left" valign="middle" class="bordaLateral">
-                                    <p class="teste">
-                                        <span class="subTitulo"> Regime Especial de Tributa&ccedil;&atilde;o: </span>
-                                        ' . $regimes[$this->nfse->service->specialTaxRegime] . '
-                                    </p>
-                                </td>
-                            </span>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            ';
+    /**
+     * Adds a "CANCELADA" watermark to the PDF if the cancellation code is present.
+     * This is done by replacing the closing </body> tag with a style block that
+     * creates a semi-transparent, 45-degree rotated, large text that says "CANCELADA".
+     * This adds a visual mark to the PDF indicating that it's been cancelled.
+     */
+    private function addCancellationMark(): void
+    {
+        if ($this->nfse->cancellationCode) {
+            $this->html = str_replace(
+                '</body>',
+                '<div style="position: fixed; opacity: 0.3; font-size: 72px; transform: rotate(-45deg); top: 50%; left: 25%;">CANCELADA</div></body>',
+                $this->html
+            );
         }
+    }
 
-        $optanteSimplesNacional = '';
-
-        if ($this->nfse->service->simpleNational) {
-            $optanteSimplesNacional = '
-           <span id="form:j_id177">
-                <tr>
-                    <td class="bordaInferior" style="padding: 5px;">
-                        <span class="subTitulo">Documento emitido por ME ou EPP optante pelo Simples Nacional. N&atilde;o gera direito a credito fiscal de IPI.</span>
-                    </td>
-                </tr>
-            </span>';
+    /**
+     * Validates the output type to ensure it's a valid value.
+     *
+     * @param string $outputType Tipo de sa da. Valores poss veis: I (visualiza o direta),
+     *                            D (download do arquivo PDF) e P (retorna o conte do do
+     *                            PDF em uma vari vel).
+     *
+     * @throws \InvalidArgumentException Se o tipo de sa da for inv lido.
+     */
+    private function validateOutputType(string $outputType): void
+    {
+        if (!in_array($outputType, ['I', 'D', 'P'])) {
+            throw new \InvalidArgumentException("Tipo de saída inválido: $outputType");
         }
-
-        $this->html = str_replace(
-            [
-                //css
-                '/* {PRINT_CSS}*/',
-                //header
-                '{ANO}',
-                '{NFSE_NUMERO}',
-                '{DATA_EMISSAO}',
-                '{HORA_EMISSAO}',
-                '{COMPETENCIA}',
-                '{CODIGO_VERIFICACAO}',
-                '{LOGO_BASE_64}',
-                '{NFE_SUBSTITUIDA}',
-                //presatador
-                '{RAZAO_SOCIAL_PRESTADOR}',
-                '{CPF_CNPJ_PRESTADOR}',
-                '{INSCRICAO_MUNICIPAL_PRESTADOR}',
-                '{LOGRADOURO_PRESTADOR}',
-                '{NUMERO_ENDERECO_PRESTADOR}',
-                '{BAIRRO_PRESTADOR}',
-                '{CEP_PRESTADOR}',
-                '{MUNICIPIO_PRESTADOR}',
-                '{ESTADO_PRESTADOR}',
-                '{TELEFONE_PRESTADOR}',
-                '{EMAIL_PRESTADOR}',
-                //Tomador
-                '{RAZAO_SOCIAL_TOMADOR}',
-                '{CPF_CNPJ_TOMADOR}',
-                '{INSCRICAO_MUNICIPAL_TOMADOR}',
-                '{LOGRADOURO_TOMADOR}',
-                '{NUMERO_ENDERECO_TOMADOR}',
-                '{BAIRRO_TOMADOR}',
-                '{CEP_TOMADOR}',
-                '{MUNICIPIO_TOMADOR}',
-                '{ESTADO_TOMADOR}',
-                '{TELEFONE_TOMADOR}',
-                '{EMAIL_TOMADOR}',
-                //body
-                '{DESCRIMINACAO}',
-                '{CODIGO_TRIBUTACAO_MUNICIPAL}',
-                '{DESCRICAO_TRIBUTACAO_MUNICIPAL}',
-                '{ITEM_LISTA_SERVICO}',
-                '{DESCRICAO_LISTA_SERVICO}',
-                '{CODIGO_MUNICIPIO_GERADOR}',
-                '{NOME_MUNICIPIO_GERADOR}',
-                '{NATUREZA_OPERACAO}',
-                '{REGIME_ESPECIAL_TRIBUTACAO}',
-                //valores
-                '{VALOR_SERVICOS}',
-                '{VALOR_DESCONTO_CONDICIONADO}',
-                '{TOTAL_RETENCOES_FEDERAIS}',
-                '{VALOR_ISS_RETIDO}',
-                '{VALOR_LIQUIDO}',
-                '{DEDUCOES}',
-                '{VALOR_DESCONTO_INCONDICIONADO}',
-                '{BASE_CALCULO}',
-                '{ALIQUOTA_SERVICOS}',
-                '{VALOR_ISS}',
-                '{VALOR_PIS}',
-                '{VALOR_COFINS}',
-                '{VALOR_IR}',
-                '{VALOR_CSLL}',
-                '{VALOR_INSS}',
-                //footer
-                '{OPITANTE_PELO_SIMPLES}',
-            ],
-            [
-                //css
-                $printCss,
-                //header
-                $this->nfse->year,
-                $this->nfse->number,
-                $this->nfse->dateEmission,
-                ' às ' . $this->nfse->timeEmission,
-                $this->nfse->competence,
-                $this->nfse->verificationCode,
-                $this->logo64,
-                $nfseNumberReplaced,
-
-                //prestador
-                $this->nfse->provider->name,
-                Utils::mask((string) $this->nfse->provider->cnpj, '##.###.###/####-##'),
-                Utils::mask((string) $this->nfse->provider->inscription, '#######/###-#'),
-                //prestador endereço
-                $this->nfse->provider->address->address,
-                $this->nfse->provider->address->number,
-                $this->nfse->provider->address->neighborhood,
-                Utils::mask((string) $this->nfse->provider->address->zipCode, '##.###-###'),
-                $this->nfse->provider->address->city,
-                $this->nfse->provider->address->state,
-                //dados do prestador
-                Utils::addPhoneMask($this->nfse->provider->phone),
-                $this->nfse->provider->email,
-
-                //tomador
-                $this->nfse->taker->name,
-                (\strlen($this->nfse->taker->document) > 11) ? Utils::mask((string) $this->nfse->taker->document, '##.###.###/####-##') : Utils::mask((string) $this->nfse->taker->document, '###.###.###-##'),
-                ($this->nfse->taker->municipalRegistration) ? Utils::mask((string) $this->nfse->taker->municipalRegistration, '#######/###-#') : 'Não Informado',
-
-                //tomador endereço
-                $this->nfse->taker->address,
-                $this->nfse->taker->number,
-                $this->nfse->taker->neighborhood,
-                Utils::mask((string) $this->nfse->taker->zipCode, '##.###-###'),
-                $this->nfse->taker->city,
-                $this->nfse->taker->state,
-                Utils::addPhoneMask($this->nfse->taker->phone),
-                $this->nfse->taker->email,
-
-                //body
-                $this->nfse->service->description,
-                Utils::mask((string) $this->nfse->service->municipalityTaxationCode, '####-#/##-##'),
-                strtolower($this->nfse->service->taxCodeDescription),
-                //item
-                $this->nfse->service->itemList,
-                strtolower($this->nfse->service->itemDescription),
-
-                $this->nfse->service->municipalCode,
-                strtolower($this->nfse->service->municipalName),
-
-                $operations[$this->nfse->service->nature],
-                $specialTaxRegime,
-
-                //valores
-                Utils::formatRealMoney($this->nfse->service->serviceValue ?? 0),
-                Utils::formatRealMoney($this->nfse->service->discountCondition ?? 0),
-                Utils::formatRealMoney($this->nfse->service->otherWithholdings ?? 0),
-                Utils::formatRealMoney($this->nfse->service->issValueWithheld ?? 0),
-                Utils::formatRealMoney($this->nfse->service->netValue ?? 0),
-                Utils::formatRealMoney($this->nfse->service->valueDeductions ?? 0),
-                Utils::formatRealMoney($this->nfse->service->unconditionedDiscount ?? 0),
-                Utils::formatRealMoney($this->nfse->service->calculationBase ?? 0),
-                $this->nfse->service->aliquot * 100 . ' % ',
-                Utils::formatRealMoney($this->nfse->service->issValue ?? 0),
-                Utils::formatRealMoney($this->nfse->service->valuePis ?? 0),
-                Utils::formatRealMoney($this->nfse->service->valueConfis ?? 0),
-                Utils::formatRealMoney($this->nfse->service->valueIR ?? 0),
-                Utils::formatRealMoney($this->nfse->service->valueCSLL ?? 0),
-                Utils::formatRealMoney($this->nfse->service->valueINSS ?? 0),
-                $optanteSimplesNacional,
-            ],
-            $this->html
-        );
-
-        return $this->html;
     }
 }
