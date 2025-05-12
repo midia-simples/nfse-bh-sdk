@@ -118,9 +118,9 @@ class Soap extends SoapClient
         try {
             $response = parent::__doRequest($data, $location, $action, $version, $one_way);
         } catch (\SoapFault $a) {
-            throw new \Exception("Não foi possivel se conectar ao sistema da prefeitura, tente novamente mais tarde.<br>E - {$a->getMessage()}");
+            throw new \Exception("Não foi possivel se conectar ao sistema da prefeitura, tente novamente mais tarde.<br>E - {$a->getMessage()} - {$a->getLine()} - {$a->getFile()}");
         } catch (\Exception $b) {
-            throw new \Exception("No momento o sistema da prefeitura está instável ou inoperante, tente novamente mais tarde.<br>E - {$b->getMessage()}");
+            throw new \Exception("No momento o sistema da prefeitura está instável ou inoperante, tente novamente mais tarde.<br>E - {$b->getMessage()} - {$b->getLine()} - {$b->getFile()}");
         }
 
         return $response;
