@@ -5,6 +5,7 @@ namespace NFse\Service;
 use Exception;
 use NFse\Helpers\Utils;
 use NFse\Models\Lot;
+use NFse\Helpers\XML;
 use NFse\Models\Settings;
 use NFse\Signature\Subscriber;
 use NFse\Soap\Soap;
@@ -42,21 +43,14 @@ class RpsToNFse
 
             $signedRpsXml = $rps->getSignedRps();
 
-            // TODO: Criar arquivo de template XML
-            $xmlLote = <<<XML
-                <?xml version='1.0' encoding='UTF-8'?>
-                <GerarNfseEnvio xmlns="http://www.abrasf.org.br/nfse.xsd">
-                    <LoteRps Id="lote:{$lot->rpsLot}" versao="1.00">
-                        <NumeroLote>{$lot->rpsLot}</NumeroLote>
-                        <Cnpj>{$this->settings->issuer->cnpj}</Cnpj>
-                        <InscricaoMunicipal>{$this->settings->issuer->imun}</InscricaoMunicipal>
-                        <QuantidadeRps>1</QuantidadeRps>
-                        <ListaRps>
-                            {$signedRpsXml}
-                        </ListaRps>
-                    </LoteRps>
-                </GerarNfseEnvio>
-            XML;
+            $xmlLote = XML::load('converteRpsNFs')
+                ->set('idLote', $lot->rpsLot)
+                ->set('numeroLote', $lot->rpsLot)
+                ->set('cnpjPrestador', $this->settings->issuer->cnpj)
+                ->set('imPrestador', $this->settings->issuer->imun)
+                ->set('quantidadeRps', '1')
+                ->append($signedRpsXml, '{{signedRpsXml}}')
+                ->save();
 
             $signedXml = $this->subscriber->assina(Utils::xmlFilter($xmlLote), 'LoteRps');
             $this->soap->setXML($signedXml);
