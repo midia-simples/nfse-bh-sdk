@@ -77,7 +77,12 @@ try {
     $nfse->service->simpleNational = false;
 
     $print = new PrintPDFNFse($nfse, $logoBase64);
-    $print->getPDF('html');
+    $html = $print->getPDF('I');
+    
+    // salve o arquivo html com a data e hora atual do teste
+    $timestamp = date('Ymd_His');
+    file_put_contents(__DIR__ . '/../storage/cdn/html/print_' . $timestamp . '.html', $html);
+
 } catch (Exception $e) {
     dd($e);
     throw $e;
