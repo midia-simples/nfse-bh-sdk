@@ -1,2 +1,5 @@
 /vendor
-/storage/certificates/11508222000136*
+/storage/certificates/*
+!/storage/certificates/somente_numeros_cnpj_da_sua_empresa
+/storage/cdn/html/*
+!/storage/cdn/html/print.html
